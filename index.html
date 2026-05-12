@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#4CAF50">
+<link rel="manifest" id="manifestLink" href="./manifest.json">
+<link rel="apple-touch-icon" id="appleIcon" href="">
+<title>收支记账</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#4CAF50;--red:#F44336;--bg:#f5f5f5;--card:#fff;--text:#333;
+  --text2:#888;--border:#e0e0e0;--shadow:0 2px 8px rgba(0,0,0,.08);
+  --radius:12px;--nav-h:60px;--header-h:48px;
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+  background:#e8e8e8;color:var(--text);-webkit-tap-highlight-color:transparent;
+  -webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;
+  display:flex;justify-content:center;min-height:100vh;
+}
+.app{
+  width:100%;max-width:480px;background:var(--bg);min-height:100vh;
+  position:relative;overflow:hidden;display:flex;flex-direction:column;
+}
+/* Header */
+.header{
+  height:var(--header-h);background:var(--green);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:600;position:sticky;top:0;z-index:10;
+  padding:0 16px;flex-shrink:0;
+}
+.header .month-label{font-size:14px;opacity:.9}
+
+/* Main Content */
+.main{flex:1;overflow-y:auto;padding:16px 16px calc(var(--nav-h) + var(--safe-bottom) + 20px);-webkit-overflow-scrolling:touch;}
+
+/* Summary Cards */
+.summary{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
+.summary .card{
+  background:var(--card);border-radius:var(--radius);padding:14px 10px;
+  text-align:center;box-shadow:var(--shadow);
+}
+.summary .card .label{font-size:12px;color:var(--text2);margin-bottom:6px}
+.summary .card .amount{font-size:18px;font-weight:700}
+.summary .card .amount.income{color:var(--green)}
+.summary .card .amount.expense{color:var(--red)}
+.summary .card .amount.balance{color:#2196F3}
+
+/* Quick Add Buttons */
+.quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.quick-actions button{
+  border:none;border-radius:var(--radius);padding:14px;font-size:16px;
+  font-weight:600;color:#fff;cursor:pointer;box-shadow:var(--shadow);
+  transition:transform .1s,opacity .1s;
+}
+.quick-actions button:active{transform:scale(.96);opacity:.9}
+.btn-income{background:var(--green)}
+.btn-expense{background:var(--red)}
+
+/* Recent List */
+.section-title{
+  font-size:14px;color:var(--text2);margin-bottom:10px;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.section-title .view-all{font-size:13px;color:var(--green);cursor:pointer}
+
+.transaction-item{
+  background:var(--card);border-radius:var(--radius);padding:14px;
+  display:flex;align-items:center;gap:12px;margin-bottom:8px;
+  box-shadow:0 1px 3px rgba(0,0,0,.04);
+  transition:transform .2s;
+}
+.transaction-item .icon{
+  width:40px;height:40px;border-radius:50%;display:flex;
+  align-items:center;justify-content:center;font-size:20px;
+  flex-shrink:0;background:#f0f0f0;
+}
+.transaction-item .info{flex:1;min-width:0}
+.transaction-item .info .cat{font-size:14px;font-weight:500}
+.transaction-item .info .note{font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.transaction-item .info .date{font-size:11px;color:var(--text2)}
+.transaction-item .amount{font-size:16px;font-weight:700;flex-shrink:0}
+.transaction-item .amount.income{color:var(--green)}
+.transaction-item .amount.expense{color:var(--red)}
+
+.empty-state{text-align:center;padding:40px 20px;color:var(--text2)}
+.empty-state .icon{font-size:48px;margin-bottom:12px}
+.empty-state .text{font-size:14px}
+
+/* Bottom Nav */
+.nav{
+  position:absolute;bottom:0;left:0;right:0;height:var(--nav-h);
+  padding-bottom:var(--safe-bottom);background:var(--card);
+  display:flex;border-top:1px solid var(--border);z-index:10;
+}
+.nav .tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;font-size:11px;color:var(--text2);cursor:pointer;
+  transition:color .2s;gap:2px;
+}
+.nav .tab.active{color:var(--green)}
+.nav .tab .tab-icon{font-size:22px}
+
+/* Modal */
+.modal-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);
+  z-index:100;display:flex;align-items:flex-end;justify-content:center;
+  animation:fadeIn .2s;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{
+  background:var(--card);border-radius:16px 16px 0 0;width:100%;max-width:480px;
+  max-height:85vh;overflow-y:auto;padding:0 20px 24px;animation:slideUp .25s;
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+.modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 0 14px;position:sticky;top:0;background:var(--card);z-index:1;
+}
+.modal-header .title{font-size:18px;font-weight:700}
+.modal-header .close{font-size:24px;color:var(--text2);cursor:pointer;padding:4px}
+
+/* Type Toggle */
+.type-toggle{
+  display:flex;background:#f0f0f0;border-radius:10px;padding:3px;margin-bottom:18px;
+}
+.type-toggle button{
+  flex:1;border:none;border-radius:8px;padding:10px;font-size:15px;
+  font-weight:600;cursor:pointer;transition:.2s;background:transparent;color:var(--text2);
+}
+.type-toggle button.active.income-btn{background:var(--green);color:#fff}
+.type-toggle button.active.expense-btn{background:var(--red);color:#fff}
+
+/* Form */
+.form-group{margin-bottom:16px}
+.form-group label{font-size:13px;color:var(--text2);display:block;margin-bottom:6px}
+.form-group input,.form-group select{
+  width:100%;border:1px solid var(--border);border-radius:10px;
+  padding:12px 14px;font-size:16px;outline:none;transition:border-color .2s;
+  background:var(--card);font-family:inherit;
+}
+.form-group input:focus,.form-group select:focus{border-color:var(--green)}
+.amount-input{
+  font-size:28px!important;font-weight:700;text-align:center;
+  padding:16px!important;letter-spacing:1px;
+}
+
+/* Category Grid */
+.cat-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
+}
+.cat-grid button{
+  border:1px solid var(--border);border-radius:10px;padding:12px 4px;
+  background:var(--card);cursor:pointer;font-size:12px;text-align:center;
+  transition:.15s;display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.cat-grid button .emoji{font-size:24px}
+.cat-grid button.selected{border-color:var(--green);background:#E8F5E9}
+.cat-grid button.expense-selected{border-color:var(--red);background:#FFEBEE}
+
+.btn-submit{
+  width:100%;border:none;border-radius:12px;padding:14px;font-size:17px;
+  font-weight:700;color:#fff;cursor:pointer;
+  margin-top:8px;transition:transform .1s;
+}
+.btn-submit:active{transform:scale(.97)}
+.btn-submit.income{background:var(--green)}
+.btn-submit.expense{background:var(--red)}
+
+/* Stats Page */
+.stats-month{font-size:16px;text-align:center;margin-bottom:16px;font-weight:600}
+.stats-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+.stats-summary .stat-card{
+  background:var(--card);border-radius:var(--radius);padding:16px;
+  text-align:center;box-shadow:var(--shadow);
+}
+.stats-summary .stat-card .label{font-size:12px;color:var(--text2);margin-bottom:4px}
+.stats-summary .stat-card .val{font-size:20px;font-weight:700}
+
+.bar-list{margin-top:12px}
+.bar-item{margin-bottom:12px}
+.bar-item .bar-label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
+.bar-item .bar-track{height:8px;background:#e0e0e0;border-radius:4px;overflow:hidden}
+.bar-item .bar-fill{height:100%;border-radius:4px;transition:width .4s}
+.bar-fill.income-bar{background:var(--green)}
+.bar-fill.expense-bar{background:var(--red)}
+
+/* Month Picker */
+.month-picker{
+  display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:16px;
+}
+.month-picker button{
+  border:none;background:var(--card);width:32px;height:32px;border-radius:50%;
+  font-size:16px;cursor:pointer;box-shadow:var(--shadow);display:flex;
+  align-items:center;justify-content:center;
+}
+.month-picker .month-text{font-size:16px;font-weight:600;min-width:100px;text-align:center}
+
+/* Export btn */
+.export-btn{
+  display:block;margin:20px auto;border:1px solid var(--green);background:var(--card);
+  color:var(--green);border-radius:20px;padding:10px 28px;font-size:14px;
+  cursor:pointer;transition:.2s;
+}
+.export-btn:active{background:#E8F5E9}
+
+/* Slider delete */
+.transaction-item{position:relative;overflow:hidden}
+.delete-zone{
+  position:absolute;right:0;top:0;bottom:0;width:70px;
+  background:var(--red);color:#fff;display:flex;align-items:center;
+  justify-content:center;font-size:14px;font-weight:600;
+  border-radius:0 var(--radius) var(--radius) 0;
+}
+
+/* Install Banner */
+.install-banner{
+  display:none;background:#FFF9C4;padding:10px 16px;font-size:13px;
+  text-align:center;position:relative;flex-shrink:0;
+}
+.install-banner .install-btn{
+  background:var(--green);color:#fff;border:none;border-radius:16px;
+  padding:6px 16px;font-size:13px;font-weight:600;cursor:pointer;margin-left:8px;
+}
+.install-banner .close-banner{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  font-size:18px;cursor:pointer;color:#999;padding:4px;
+}
+/* Install Guide */
+.install-guide{
+  background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:16px;
+  box-shadow:var(--shadow);
+}
+.install-guide .step{
+  display:flex;align-items:center;gap:10px;margin:10px 0;font-size:13px;
+}
+.install-guide .step-num{
+  width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:12px;
+  font-weight:700;flex-shrink:0;
+}
+/* Toast */
+.toast{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(0,0,0,.78);color:#fff;padding:12px 24px;
+  border-radius:20px;font-size:14px;z-index:200;
+  animation:toastIn .2s;
+  pointer-events:none;
+}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,-50%) scale(.8)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="header">💰 收支记账 <span class="month-label" id="headerMonth"></span></header>
+  <div class="install-banner" id="installBanner">
+    💡 点击右侧按钮安装到手机桌面
+    <button class="install-btn" id="installBtn">安装</button>
+    <span class="close-banner" onclick="dismissInstall()">✕</span>
+  </div>
+  <div class="main" id="mainContent"></div>
+  <nav class="nav">
+    <div class="tab active" data-tab="home"><span class="tab-icon">🏠</span>首页</div>
+    <div class="tab" data-tab="records"><span class="tab-icon">📋</span>记录</div>
+    <div class="tab" data-tab="stats"><span class="tab-icon">📊</span>统计</div>
+  </nav>
+</div>
+
+<div class="modal-overlay" id="modalOverlay" style="display:none">
+  <div class="modal" id="modal"></div>
+</div>
+
+<script>
+// ==================== DATA LAYER ====================
+const STORAGE_KEY = 'qianbao_data';
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+// ==================== CATEGORIES ====================
+const INCOME_CATS = [
+  { key: 'salary', label: '工资', emoji: '💼' },
+  { key: 'parttime', label: '兼职', emoji: '💻' },
+  { key: 'invest', label: '投资', emoji: '📈' },
+  { key: 'other_income', label: '其他', emoji: '💰' },
+];
+const EXPENSE_CATS = [
+  { key: 'food', label: '餐饮', emoji: '🍜' },
+  { key: 'transport', label: '交通', emoji: '🚗' },
+  { key: 'shopping', label: '购物', emoji: '🛒' },
+  { key: 'housing', label: '住房', emoji: '🏠' },
+  { key: 'entertain', label: '娱乐', emoji: '🎮' },
+  { key: 'medical', label: '医疗', emoji: '💊' },
+  { key: 'other_expense', label: '其他', emoji: '📌' },
+];
+
+function getCatLabel(type, key) {
+  const list = type === 'income' ? INCOME_CATS : EXPENSE_CATS;
+  return list.find(c => c.key === key) || { label: '未知', emoji: '❓' };
+}
+
+// ==================== STATE ====================
+let transactions = loadData();
+let currentTab = 'home';
+let currentMonth = new Date().getMonth() + 1;
+let currentYear = new Date().getFullYear();
+let editId = null;
+
+// ==================== HELPERS ====================
+function fmt(n) { return Number(n).toFixed(2); }
+function fmtDate(d) { const p = d.split('-'); return `${p[1]}月${p[2]}日`; }
+function getMonthKey(y, m) { return `${y}-${String(m).padStart(2,'0')}`; }
+function currentMonthKey() { return getMonthKey(currentYear, currentMonth); }
+
+function inMonth(t) { return t.date.startsWith(currentMonthKey()); }
+
+function monthTotal(type) {
+  return transactions.filter(t => t.type === type && inMonth(t)).reduce((s, t) => s + t.amount, 0);
+}
+
+function balance() { return monthTotal('income') - monthTotal('expense'); }
+
+function monthRecords() {
+  return transactions.filter(t => inMonth(t)).sort((a, b) => {
+    if (a.date !== b.date) return b.date.localeCompare(a.date);
+    return b.createdAt - a.createdAt;
+  });
+}
+
+function allMonths() {
+  const set = new Set();
+  transactions.forEach(t => { if (t.date) set.add(t.date.slice(0, 7)); });
+  return [...set].sort().reverse();
+}
+
+// ==================== RENDER ====================
+const mainContent = document.getElementById('mainContent');
+const headerMonth = document.getElementById('headerMonth');
+const modalOverlay = document.getElementById('modalOverlay');
+const modal = document.getElementById('modal');
+
+function updateHeader() {
+  headerMonth.textContent = `${currentYear}年${currentMonth}月`;
+}
+
+function render() {
+  updateHeader();
+  if (currentTab === 'home') renderHome();
+  else if (currentTab === 'records') renderRecords();
+  else renderStats();
+}
+
+function renderHome() {
+  const income = monthTotal('income');
+  const expense = monthTotal('expense');
+  const bal = income - expense;
+  const recent = monthRecords().slice(0, 5);
+
+  let html = `
+    <div class="summary">
+      <div class="card"><div class="label">本月收入</div><div class="amount income">+${fmt(income)}</div></div>
+      <div class="card"><div class="label">本月支出</div><div class="amount expense">-${fmt(expense)}</div></div>
+      <div class="card"><div class="label">本月结余</div><div class="amount balance">${fmt(bal)}</div></div>
+    </div>
+    <div class="quick-actions">
+      <button class="btn-income" onclick="openModal('income')">➕ 记一笔收入</button>
+      <button class="btn-expense" onclick="openModal('expense')">➖ 记一笔支出</button>
+    </div>
+    <div class="section-title">
+      <span>最近记录</span>
+      ${recent.length > 0 ? '<span class="view-all" onclick="switchTab(\'records\')">查看全部 →</span>' : ''}
+    </div>
+  `;
+
+  if (recent.length === 0) {
+    html += '<div class="empty-state"><div class="icon">📝</div><div class="text">本月还没有记录<br>点击上方按钮开始记账吧</div></div>';
+  } else {
+    recent.forEach(t => html += renderItem(t));
+  }
+
+  mainContent.innerHTML = html;
+}
+
+function renderItem(t) {
+  const cat = getCatLabel(t.type, t.category);
+  const cls = t.type === 'income' ? 'income' : 'expense';
+  const sign = t.type === 'income' ? '+' : '-';
+  return `
+    <div class="transaction-item" data-id="${t.id}">
+      <div class="icon">${cat.emoji}</div>
+      <div class="info">
+        <div class="cat">${cat.label}</div>
+        ${t.note ? `<div class="note">${escHtml(t.note)}</div>` : ''}
+        <div class="date">${fmtDate(t.date)}</div>
+      </div>
+      <div class="amount ${cls}">${sign}${fmt(t.amount)}</div>
+    </div>
+  `;
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function renderRecords() {
+  const list = monthRecords();
+  let html = `
+    <div class="month-picker">
+      <button onclick="prevMonth()">◀</button>
+      <div class="month-text">${currentYear}年${currentMonth}月</div>
+      <button onclick="nextMonth()">▶</button>
+    </div>
+  `;
+
+  if (list.length === 0) {
+    html += '<div class="empty-state"><div class="icon">📭</div><div class="text">本月暂无记录</div></div>';
+    mainContent.innerHTML = html;
+    return;
+  }
+
+  // Group by date
+  let lastDate = '';
+  list.forEach(t => {
+    if (t.date !== lastDate) {
+      html += `<div style="font-size:13px;color:var(--text2);margin:14px 0 8px;display:flex;justify-content:space-between">
+        <span>${fmtDate(t.date)}</span>
+        <span style="font-size:11px">${getDayOfWeek(t.date)}</span>
+      </div>`;
+      lastDate = t.date;
+    }
+    html += renderItem(t);
+  });
+
+  mainContent.innerHTML = html;
+
+  // Add swipe-to-delete
+  document.querySelectorAll('.transaction-item').forEach(el => {
+    let startX = 0, moved = 0;
+    el.addEventListener('touchstart', e => { startX = e.touches[0].clientX; moved = 0; });
+    el.addEventListener('touchmove', e => {
+      moved = e.touches[0].clientX - startX;
+      if (moved < 0) el.style.transform = `translateX(${Math.max(moved, -70)}px)`;
+    });
+    el.addEventListener('touchend', () => {
+      if (moved < -40) {
+        el.style.transform = 'translateX(-70px)';
+        el.querySelector('.delete-zone') || addDeleteZone(el);
+      } else {
+        el.style.transform = '';
+      }
+    });
+  });
+}
+
+function addDeleteZone(el) {
+  const zone = document.createElement('div');
+  zone.className = 'delete-zone';
+  zone.textContent = '删除';
+  zone.onclick = (e) => {
+    e.stopPropagation();
+    deleteRecord(el.dataset.id);
+  };
+  el.appendChild(zone);
+  // Click outside to reset
+  setTimeout(() => {
+    document.addEventListener('click', function reset(e) {
+      if (!el.contains(e.target)) { el.style.transform = ''; document.removeEventListener('click', reset); }
+    });
+  }, 10);
+}
+
+function getDayOfWeek(d) {
+  const days = ['周日','周一','周二','周三','周四','周五','周六'];
+  return days[new Date(d).getDay()];
+}
+
+function deleteRecord(id) {
+  transactions = transactions.filter(t => t.id !== id);
+  saveData(transactions);
+  showToast('已删除');
+  render();
+}
+
+function renderStats() {
+  const income = monthTotal('income');
+  const expense = monthTotal('expense');
+
+  let html = `
+    <div class="month-picker">
+      <button onclick="prevMonth()">◀</button>
+      <div class="month-text">${currentYear}年${currentMonth}月</div>
+      <button onclick="nextMonth()">▶</button>
+    </div>
+    <div class="stats-summary">
+      <div class="stat-card"><div class="label">总收入</div><div class="val" style="color:var(--green)">+${fmt(income)}</div></div>
+      <div class="stat-card"><div class="label">总支出</div><div class="val" style="color:var(--red)">-${fmt(expense)}</div></div>
+    </div>
+  `;
+
+  // Category breakdown
+  if (income > 0) {
+    html += '<div class="section-title">收入分类</div><div class="bar-list">';
+    INCOME_CATS.forEach(cat => {
+      const sum = transactions.filter(t => t.type === 'income' && t.category === cat.key && inMonth(t)).reduce((s, t) => s + t.amount, 0);
+      if (sum > 0) {
+        const pct = Math.round(sum / income * 100);
+        html += `<div class="bar-item">
+          <div class="bar-label"><span>${cat.emoji} ${cat.label}</span><span>${fmt(sum)} (${pct}%)</span></div>
+          <div class="bar-track"><div class="bar-fill income-bar" style="width:${pct}%"></div></div>
+        </div>`;
+      }
+    });
+    html += '</div>';
+  }
+
+  if (expense > 0) {
+    html += '<div class="section-title" style="margin-top:16px">支出分类</div><div class="bar-list">';
+    EXPENSE_CATS.forEach(cat => {
+      const sum = transactions.filter(t => t.type === 'expense' && t.category === cat.key && inMonth(t)).reduce((s, t) => s + t.amount, 0);
+      if (sum > 0) {
+        const pct = Math.round(sum / expense * 100);
+        html += `<div class="bar-item">
+          <div class="bar-label"><span>${cat.emoji} ${cat.label}</span><span>${fmt(sum)} (${pct}%)</span></div>
+          <div class="bar-track"><div class="bar-fill expense-bar" style="width:${pct}%"></div></div>
+        </div>`;
+      }
+    });
+    html += '</div>';
+  }
+
+  if (income === 0 && expense === 0) {
+    html += '<div class="empty-state"><div class="icon">📊</div><div class="text">本月暂无数据</div></div>';
+  }
+
+  html += '<button class="export-btn" onclick="exportCSV()">📥 导出 CSV</button>';
+  mainContent.innerHTML = html;
+}
+
+// ==================== MODAL ====================
+function openModal(type) {
+  editId = null;
+  const catList = type === 'income' ? INCOME_CATS : EXPENSE_CATS;
+  modal.innerHTML = `
+    <div class="modal-header">
+      <span class="title">${type === 'income' ? '记收入' : '记支出'}</span>
+      <span class="close" onclick="closeModal()">✕</span>
+    </div>
+    <div class="type-toggle">
+      <button class="income-btn ${type==='income'?'active':''}" onclick="switchModalType('income')">收入</button>
+      <button class="expense-btn ${type==='expense'?'active':''}" onclick="switchModalType('expense')">支出</button>
+    </div>
+    <div class="form-group">
+      <input class="amount-input" type="number" id="amountInput" placeholder="0.00" step="0.01" min="0" autofocus>
+    </div>
+    <div class="form-group">
+      <label>分类</label>
+      <div class="cat-grid" id="catGrid">
+        ${catList.map((c, i) => `<button data-key="${c.key}" class="${i===0?'selected':''}" onclick="selectCat(this)"><span class="emoji">${c.emoji}</span>${c.label}</button>`).join('')}
+      </div>
+    </div>
+    <div class="form-group">
+      <label>日期</label>
+      <input type="date" id="dateInput" value="${today()}">
+    </div>
+    <div class="form-group">
+      <label>备注（可选）</label>
+      <input type="text" id="noteInput" placeholder="写点什么...">
+    </div>
+    <button class="btn-submit ${type}" onclick="saveRecord('${type}')">✓ 保存</button>
+  `;
+  modalOverlay.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('amountInput')?.focus(), 300);
+}
+
+function switchModalType(type) {
+  const amt = document.getElementById('amountInput')?.value || '';
+  openModal(type);
+  setTimeout(() => {
+    const inp = document.getElementById('amountInput');
+    if (inp) { inp.value = amt; inp.focus(); }
+  }, 50);
+}
+
+function closeModal() {
+  modalOverlay.style.display = 'none';
+  document.body.style.overflow = '';
+  editId = null;
+}
+
+function selectCat(btn) {
+  btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('selected', 'expense-selected'));
+  const type = document.querySelector('.btn-submit')?.classList.contains('income') ? 'income' : 'expense';
+  btn.classList.add(type === 'expense' ? 'expense-selected' : 'selected');
+}
+
+function today() { return new Date().toISOString().slice(0, 10); }
+
+function saveRecord(type) {
+  const amount = parseFloat(document.getElementById('amountInput')?.value);
+  if (!amount || amount <= 0) { showToast('请输入金额'); return; }
+
+  const catBtn = document.querySelector('#catGrid .selected, #catGrid .expense-selected');
+  const category = catBtn?.dataset.key || (type === 'income' ? 'other_income' : 'other_expense');
+  const date = document.getElementById('dateInput')?.value || today();
+  const note = document.getElementById('noteInput')?.value?.trim() || '';
+
+  if (editId) {
+    transactions = transactions.map(t => t.id === editId ? { ...t, type, amount, category, date, note } : t);
+  } else {
+    transactions.push({ id: genId(), type, amount, category, date, note, createdAt: Date.now() });
+  }
+
+  saveData(transactions);
+  closeModal();
+  // Update month if needed
+  if (date) {
+    const [y, m] = date.split('-').map(Number);
+    currentYear = y; currentMonth = m;
+  }
+  showToast(editId ? '已更新' : '已保存');
+  render();
+}
+
+// ==================== NAVIGATION ====================
+function switchTab(tab) {
+  currentTab = tab;
+  // Reset to current month when switching to records or stats
+  if (tab === 'records' || tab === 'stats') {
+    currentMonth = new Date().getMonth() + 1;
+    currentYear = new Date().getFullYear();
+  }
+  document.querySelectorAll('.nav .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  render();
+  mainContent.scrollTop = 0;
+}
+
+document.querySelectorAll('.nav .tab').forEach(tab => {
+  tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+});
+
+function prevMonth() {
+  if (currentMonth === 1) { currentMonth = 12; currentYear--; }
+  else currentMonth--;
+  render();
+}
+function nextMonth() {
+  if (currentMonth === 12) { currentMonth = 1; currentYear++; }
+  else currentMonth++;
+  render();
+}
+
+modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+
+// ==================== TOAST ====================
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; }, 1500);
+  setTimeout(() => t.remove(), 2000);
+}
+
+// ==================== EXPORT ====================
+function exportCSV() {
+  const list = monthRecords();
+  if (list.length === 0) { showToast('本月无数据可导出'); return; }
+  let csv = '﻿类型,分类,金额,日期,备注\n';
+  list.forEach(t => {
+    const cat = getCatLabel(t.type, t.category);
+    csv += `${t.type==='income'?'收入':'支出'},${cat.label},${t.amount},${t.date},${t.note || ''}\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `收支记录_${currentMonthKey()}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  showToast('导出成功');
+}
+
+// ==================== PWA ICON GENERATION ====================
+function generateIcons() {
+  function makeIcon(size, text, bg) {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    // Background
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, size, size, size * 0.18);
+    ctx.fill();
+    // Emoji text
+    ctx.fillStyle = '#fff';
+    ctx.font = `${size * 0.58}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, size / 2, size * 0.54);
+    return c.toDataURL('image/png');
+  }
+  const png192 = makeIcon(192, '💰', '#4CAF50');
+  const png512 = makeIcon(512, '💰', '#4CAF50');
+  const apple180 = makeIcon(180, '💰', '#4CAF50');
+
+  // Set apple touch icon
+  document.getElementById('appleIcon').href = apple180;
+
+  // Create dynamic manifest
+  const manifest = {
+    name: '个人收支记账',
+    short_name: '记账',
+    description: '随时随地记录收支',
+    start_url: './index.html',
+    display: 'standalone',
+    background_color: '#f5f5f5',
+    theme_color: '#4CAF50',
+    orientation: 'portrait',
+    icons: [
+      { src: png192, sizes: '192x192', type: 'image/png' },
+      { src: png512, sizes: '512x512', type: 'image/png' }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+  document.getElementById('manifestLink').href = URL.createObjectURL(blob);
+}
+
+// ==================== PWA INSTALL ====================
+let deferredPrompt = null;
+const installBanner = document.getElementById('installBanner');
+const installBtn = document.getElementById('installBtn');
+
+function dismissInstall() {
+  installBanner.style.display = 'none';
+  sessionStorage.setItem('installDismissed', '1');
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (!sessionStorage.getItem('installDismissed')) {
+    installBanner.style.display = 'block';
+  }
+});
+
+installBtn.addEventListener('click', async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      installBanner.style.display = 'none';
+      showToast('安装成功！');
+    }
+    deferredPrompt = null;
+  } else {
+    showInstallGuide();
+  }
+});
+
+function showInstallGuide() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.display = 'flex';
+  overlay.style.alignItems = 'center';
+  overlay.innerHTML = `
+    <div class="modal" style="border-radius:16px;text-align:center;padding:24px 20px;">
+      <div style="font-size:48px;margin-bottom:12px">📱</div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:6px">添加到主屏幕</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:18px">像 App 一样使用，无需每次打开浏览器</div>
+      <div class="install-guide" style="text-align:left">
+        <div class="step"><span class="step-num">1</span> 点击地址栏右侧 <b>⋮</b> 菜单</div>
+        <div class="step"><span class="step-num">2</span> 选择 <b>添加到主屏幕</b></div>
+        <div class="step"><span class="step-num">3</span> 点击 <b>添加</b> 完成</div>
+      </div>
+      <button style="margin-top:12px;border:none;background:var(--green);color:#fff;
+        border-radius:20px;padding:10px 30px;font-size:15px;cursor:pointer"
+        onclick="this.closest('.modal-overlay').remove();document.body.style.overflow=''">知道了</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) { overlay.remove(); document.body.style.overflow = ''; }
+  });
+}
+
+function canInstallPWA() {
+  // Check if already in standalone mode
+  if (window.matchMedia('(display-mode: standalone)').matches) return false;
+  return true;
+}
+
+// ==================== PWA SW ====================
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ==================== INIT ====================
+generateIcons();
+updateHeader();
+renderHome();
+
+// Add install hint to home page only when PWA-relevant
+if (canInstallPWA() && !sessionStorage.getItem('installDismissed')) {
+  // Will show via beforeinstallprompt if supported, otherwise show after delay
+  setTimeout(() => {
+    if (!deferredPrompt && !sessionStorage.getItem('installDismissed') && !window.matchMedia('(display-mode: standalone)').matches) {
+      installBanner.style.display = 'block';
+    }
+  }, 3000);
+}
+
+// Keyboard shortcut
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+</script>
+</body>
+</html>
