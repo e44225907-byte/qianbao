@@ -695,49 +695,21 @@ function exportCSV() {
   showToast('导出成功');
 }
 
-// ==================== PWA ICON GENERATION ====================
-function generateIcons() {
-  function makeIcon(size, text, bg) {
-    const c = document.createElement('canvas');
-    c.width = c.height = size;
-    const ctx = c.getContext('2d');
-    // Background
-    ctx.fillStyle = bg;
-    ctx.beginPath();
-    ctx.roundRect(0, 0, size, size, size * 0.18);
-    ctx.fill();
-    // Emoji text
-    ctx.fillStyle = '#fff';
-    ctx.font = `${size * 0.58}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, size / 2, size * 0.54);
-    return c.toDataURL('image/png');
-  }
-  const png192 = makeIcon(192, '💰', '#4CAF50');
-  const png512 = makeIcon(512, '💰', '#4CAF50');
-  const apple180 = makeIcon(180, '💰', '#4CAF50');
-
-  // Set apple touch icon
-  document.getElementById('appleIcon').href = apple180;
-
-  // Create dynamic manifest
-  const manifest = {
-    name: '个人收支记账',
-    short_name: '记账',
-    description: '随时随地记录收支',
-    start_url: './index.html',
-    display: 'standalone',
-    background_color: '#f5f5f5',
-    theme_color: '#4CAF50',
-    orientation: 'portrait',
-    icons: [
-      { src: png192, sizes: '192x192', type: 'image/png' },
-      { src: png512, sizes: '512x512', type: 'image/png' }
-    ]
-  };
-  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-  document.getElementById('manifestLink').href = URL.createObjectURL(blob);
+// ==================== APPLE TOUCH ICON ====================
+function generateAppleIcon() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 180;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#4CAF50';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, 180, 180, 32);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = '105px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('💰', 90, 97);
+  document.getElementById('appleIcon').href = c.toDataURL('image/png');
 }
 
 // ==================== PWA INSTALL ====================
@@ -810,7 +782,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ==================== INIT ====================
-generateIcons();
+generateAppleIcon();
 updateHeader();
 renderHome();
 
